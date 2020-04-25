@@ -22,9 +22,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var timer: Timer!
     
     var studyMI: NSMenuItem!
-    var stopMI: NSMenuItem!
+    var resetMI: NSMenuItem!
     var quitMI: NSMenuItem!
     var displayMI: NSMenuItem!
+    var stopMI: NSMenuItem!
     var p1MI: NSMenuItem!
     var p2MI: NSMenuItem!
     var p3MI: NSMenuItem!
@@ -61,9 +62,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         
         self.studyMI = NSMenuItem(title: "Study", action: #selector(AppDelegate.study(_:)), keyEquivalent: "")
-        self.stopMI = NSMenuItem(title: "Stop", action: #selector(AppDelegate.stopStudy(_:)), keyEquivalent: "")
-        self.quitMI = NSMenuItem(title: "Quit", action: #selector(AppDelegate.quitStudy(_:)), keyEquivalent: "")
+        self.resetMI = NSMenuItem(title: "Reset", action: #selector(AppDelegate.resetStudy(_:)), keyEquivalent: "")
+        self.quitMI = NSMenuItem(title: "Quit Study", action: #selector(AppDelegate.quitStudy(_:)), keyEquivalent: "")
         self.displayMI = NSMenuItem(title: "Display", action: #selector(AppDelegate.display(_:)), keyEquivalent: "")
+        self.stopMI = NSMenuItem(title: "Stop", action: #selector(AppDelegate.stopStudy(_:)), keyEquivalent: "")
         self.p1MI = NSMenuItem(title: "", action: #selector(AppDelegate.record(_:)), keyEquivalent: "")
         self.p2MI = NSMenuItem(title: "", action: #selector(AppDelegate.record(_:)), keyEquivalent: "")
         self.p3MI = NSMenuItem(title: "", action: #selector(AppDelegate.record(_:)), keyEquivalent: "")
@@ -71,6 +73,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.p1MI.isHidden = true
         self.p2MI.isHidden = true
         self.p3MI.isHidden = true
+        self.resetMI.isHidden = true
         self.stopMI.isHidden = true
         
         menu.addItem(self.studyMI)
@@ -80,6 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(self.p3MI)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(self.stopMI)
+        menu.addItem(self.resetMI)
         menu.addItem(self.quitMI)
         statusBarItem.menu = menu
     }
@@ -114,6 +118,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.p1MI.isHidden = false
         self.p2MI.isHidden = false
         self.p3MI.isHidden = false
+        self.resetMI.isHidden = false
         self.stopMI.isHidden = false
         self.studyMI.isHidden = true
         self.displayMI.isHidden = true
@@ -127,7 +132,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     /**********************************************************/
-    @objc func stopStudy(_ sender: Any?) {
+    @objc func resetStudy(_ sender: Any?) {
         if (self.timer != nil) {
             self.timer.invalidate()
         }
@@ -135,6 +140,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.p1MI.isHidden = true
         self.p2MI.isHidden = true
         self.p3MI.isHidden = true
+        self.resetMI.isHidden = true
         self.stopMI.isHidden = true
         self.studyMI.isHidden = false
         self.displayMI.isHidden = false
@@ -150,26 +156,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func record(_ sender: NSMenuItem) {
         let nextP = extractInterval(sender)
         ContentView().appendToFile(minutes: nextP)
-        stopStudy(sender)
+        resetStudy(sender)
     }
     
     /**********************************************************/
-    func extractInterval(_ sender: NSMenuItem) -> Int {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        //formatter.dateFormat = "yyyy/MM/dd HH:mm"
-        let beginTime = formatter.date(from: sender.title)
-        let calendar = Calendar.current
-        let minutes = calendar.component(.minute, from: beginTime!)
-        var nextP = 0
-        if (minutes < 30) {
-            nextP = 30 - minutes
+    @objc func stopStudy(_ sender: NSMenuItem) {
+        // Find the current active time period
+        var mi = ""
+        if (p1MI.action != nil) {
+            mi = p1MI.title
+        } else if (p2MI.action != nil) {
+            mi = p2MI.title
         } else {
-            nextP = 60 - minutes
+            mi = p3MI.title
         }
-        return nextP
-    
+        
+        let (hr1, min1) = getHrMin(getDateObj(mi))
+        let (hr2, min2) = getHrMin(Date())
+        let interval = min2 - min1
+        if (hr1 == hr2 && interval > 0 && interval <= 30) {
+            ContentView().appendToFile(minutes: interval)
+        } else {
+            _ = AppDelegate.dialogOKCancel(question: "Error", text: "Time interval is invalid (\(interval) min), not recorded.", cancelButton: false)
+        }
+        resetStudy(sender)
     }
     
     /**********************************************************/
@@ -181,13 +191,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     /**********************************************************/
-    static func dialogOKCancel(question: String, text: String) -> Bool {
+    func getDateObj(_ fromStr: String) -> Date {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        //formatter.dateFormat = "yyyy/MM/dd HH:mm"
+        return formatter.date(from: fromStr)!
+    }
+    
+    /**********************************************************/
+    func getHrMin(_ fromD: Date) -> (Int, Int) {
+        let calendar = Calendar.current
+        let minutes = calendar.component(.minute, from: fromD)
+        let hour = calendar.component(.hour, from: fromD)
+        return (hour, minutes)
+    }
+    
+    /**********************************************************/
+    func extractInterval(_ sender: NSMenuItem) -> Int {
+        let beginTime = self.getDateObj(sender.title)
+        let (_, minutes) = getHrMin(beginTime)
+        var nextP = 0
+        if (minutes < 30) {
+            nextP = 30 - minutes
+        } else {
+            nextP = 60 - minutes
+        }
+        return nextP
+    }
+    
+    /**********************************************************/
+    static func dialogOKCancel(question: String, text: String,
+                               cancelButton: Bool = true) -> Bool {
         let alert = NSAlert()
         alert.messageText = question
         alert.informativeText = text
         alert.alertStyle = .warning
         alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Cancel")
+        if (cancelButton) {
+            alert.addButton(withTitle: "Cancel")
+        }
         return alert.runModal() == .alertFirstButtonReturn
     }
     
@@ -204,7 +247,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ContentView().appendToFile(minutes: interval)
             
             if (self.p3MI.action == nil) {
-                stopStudy(self.p3MI)
+                resetStudy(self.p3MI)
                 return
             }
             var period = self.p2MI
@@ -215,7 +258,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.timer = Timer.scheduledTimer(timeInterval: TimeInterval(newInterval), target: self, selector: #selector(fireTimer), userInfo: period, repeats: false)
             
         } else {
-            stopStudy(menuItem)
+            resetStudy(menuItem)
         }
     }
     

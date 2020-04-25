@@ -111,7 +111,7 @@ struct ContentView: View {
                     try str.write(to: fileURL, atomically: true, encoding: String.Encoding.utf8)
                 } catch {
                     print("Unexpected error: \(error).")
-                    _ = AppDelegate.dialogOKCancel(question: "Error", text: "\(error)")
+                    _ = AppDelegate.dialogOKCancel(question: "Error", text: "\(error)", cancelButton: false)
                     NSApplication.shared.terminate(self)
                 }
                 //try write(to: fileURL, options: .atomic)
