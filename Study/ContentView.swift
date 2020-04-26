@@ -47,11 +47,14 @@ struct ContentView: View {
         
         let sortedKeys = Array(dict.keys).sorted()
         for (i, date) in sortedKeys.enumerated() {
-            if ((sortedKeys.count - i) <= 7) {
+            let item = sortedKeys.count - i
+            if (item <= 7) {
                 let formatter = DateFormatter()
                 formatter.timeStyle = .none
                 formatter.dateStyle = .short
-                str += "\n \(formatter.string(from: date)) -> \(formatTimeP(from: dict[date] ?? 0))"
+                str += (item == 1) ? "\n[" : "\n "
+                str += "\(formatter.string(from: date)) -> \(formatTimeP(from: dict[date] ?? 0))"
+                str += (item == 1) ? "]" : ""
             }
         }
         return str
