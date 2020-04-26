@@ -150,9 +150,11 @@ struct ContentView: View {
         dateFormatter.dateFormat = "MMMM"
         let month = dateFormatter.string(from: date)
         var str = " \(month) \(year)\n\n"
-        let weekday = calendar.component(.weekday, from: date)
         let today = calendar.component(.day, from: date)
-        let wday1 = weekday - ((today % 7) - 1)
+        var dateComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
+        dateComponents.day = 1
+        let date1 = calendar.date(from: dateComponents)
+        let wday1 = calendar.component(.weekday, from: date1!)
         
         str += " Su  Mo  Tu  We  Th  Fr  Sa\n"
         for _ in 2...wday1 {
